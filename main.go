@@ -24,23 +24,32 @@ func main() {
 
 func run(){
     fmt.Printf("Running %v as %d\n", os.Args[2:], os.Getpid())
-
     cmd := exec.Command("/proc/self/exe", append([]string{"child"},os.Args[2:]...)...)
     cmd.Stdin = os.Stdin
     cmd.Stdout = os.Stdout
     cmd.Stderr = os.Stderr
     cmd.SysProcAttr = &syscall.SysProcAttr{
         Cloneflags: syscall.CLONE_NEWUTS | syscall.CLONE_NEWPID | syscall.CLONE_NEWNS | syscall.CLONE_NEWNET,
-        Unshareflags: syscall.CLONE_NEWNS,
+        Unshareflags: syscall.CLONE_NEWNS,        
     }
-    cmd.Run()
+    err := cmd.Start()
+    if err != nil {
+        fmt.Println(err)
+    }
+    fmt.Printf("PID %d\n",cmd.Process.Pid)
+	err = cmd.Wait()
+	if err != nil {
+		fmt.Println("Error waiting for command:", err)
+		return
+	}
 }
 
 func child(){
     fmt.Printf("Running %v as %d\n", os.Args[2:], os.Getpid())
 
-    cg()
+    // cg()
 
+    
     syscall.Sethostname([]byte("container"))
     syscall.Chroot("/home/tanmoy/Desktop/oss/container_custom/alpine-fs")
     syscall.Chdir("/")
@@ -50,13 +59,16 @@ func child(){
     cmd.Stdin = os.Stdin
     cmd.Stdout = os.Stdout
     cmd.Stderr = os.Stderr
-    cmd.Run()
+    err := cmd.Run()
+    if err != nil {
+        fmt.Println(err)
+    }
 
     syscall.Unmount("/proc", 0)
 }
 
 
-func cg(){
+func Cg(){
     cgroups := "/sys/fs/cgroup/"
     pids := filepath.Join(cgroups, "pids")
     err := os.Mkdir(filepath.Join(pids, "liz"), 0755)
